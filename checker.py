@@ -55,22 +55,47 @@ class Trie:
 
 
 class Checker:
-    def __init__(self, pinyin_path: str):
-        self.trie = Trie()
+    def __init__(self, pinyin_path: str, near_path: str):
+        self.pinyin_trie = Trie()
         with open(pinyin_path, "r", encoding="utf-8") as f:
             for line in f:
-                self.trie.insert(line.strip())
-        self.trie.build()
+                self.pinyin_trie.insert(line.strip())
+        self.pinyin_trie.build()
+
+        self.near = set()
+        with open(near_path, "r", encoding="utf-8") as f:
+            for line in f:
+                x, y = line.split()
+                self.near.add((x, y))
 
     def check_pinyin(self, passwd: str, *, limit: int = 5):
-        word = self.trie.query(passwd)
+        word = self.pinyin_trie.query(passwd)
         if len(word) >= limit:
             return word
 
+    def check_near(self, passwd: str, *, limit: int = 5):
+        cur = best = ""
+        for i in range(1, len(passwd)):
+            x, y = passwd[i - 1], passwd[i]
+            if (x, y) in self.near or (y, x) in self.near:
+                if not cur:
+                    cur = x
+                cur += y
+            else:
+                if len(cur) > len(best):
+                    best = cur
+                cur = ""
+        if len(cur) > len(best):
+            best = cur
+        if len(best) >= limit:
+            return best
+
 
 if __name__ == "__main__":
-    checker = Checker("pinyin.txt")
+    checker = Checker("pinyin.txt", "near.txt")
     # tests
     print(checker.check_pinyin("woaini"))
     print(checker.check_pinyin("woaini123"))
     print(checker.check_pinyin("woaishanghaidaxue"))
+    print(checker.check_near("qazwsx"))
+    print(checker.check_near("1q2w3e4r5t6y7u8i9o0p"))
