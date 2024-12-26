@@ -11,9 +11,15 @@ with open("pinyin.txt", "r", encoding="utf-8") as file:
 try:
     while True:
         word = input("insert? ")
-        data.add(word)
-except (EOFError, KeyboardInterrupt):
+        if word in data:
+            print("Warning: already exists.")
+        else:
+            data.add(word)
+except EOFError:
     pass
+except KeyboardInterrupt:
+    print("Interrupted.")
+    sys.exit(1)
 
 with open("pinyin.txt", "w", encoding="utf-8") as file:
     print(*sorted(data), sep="\n", file=file)

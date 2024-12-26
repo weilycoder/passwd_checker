@@ -6235,6 +6235,7 @@ daji
 dajia
 dajiafengfan
 dajiaguixiu
+dajiahao
 dajiahuo
 dajiahuoer
 dajiajiedao
@@ -14717,6 +14718,7 @@ huatuo
 huawai
 huawaiyin
 huawaizhimin
+huawei
 huaweihuijin
 huaweipaoying
 huaweiwuyou
@@ -21952,6 +21954,7 @@ militiaoyou
 miliu
 miliuzhiji
 milu
+mima
 miman
 mimaxiang
 mimeng
@@ -33147,6 +33150,7 @@ woqianbaoqian
 woquantouzhao
 woshe
 wosheqihu
+woshi
 woshouyanhe
 wosuchubo
 wosuhuaiqian
