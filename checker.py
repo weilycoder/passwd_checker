@@ -220,20 +220,48 @@ class Check_Popular:
         return ret
 
 
+class Check_Adjacency:
+    def __init__(self, adj_path: str):
+        self.alpha: set[str] = set()
+        self.adj: set[frozenset[str]] = set()
+
+        with open(adj_path, "r", encoding="utf-8") as file:
+            for line in file:
+                x, y = line.split()
+                self.alpha.update(x, y)
+                self.adj.add(frozenset((x, y)))
+
+        self.avg_edges = len(self.adj) / len(self.alpha)
+        self.edge_size = math.log(self.avg_edges)
+
+    def check_adj(self, passwd: str, *, limit: int = 3):
+        cur = ""
+        words: list[tuple[int, int, float]] = []
+        for i in range(1, len(passwd)):
+            x, y = passwd[i - 1], passwd[i]
+            if frozenset((x.lower(), y.lower())) in self.adj:
+                if not cur:
+                    cur = x
+                cur += y
+            else:
+                if len(cur) >= limit:
+                    cost = self.edge_size * len(cur)
+                    words.append((i - len(cur), len(cur), cost))
+                cur = ""
+        if len(cur) >= limit:
+            cost = self.edge_size * len(cur)
+            words.append((len(passwd) - len(cur), len(cur), cost))
+        return words
+
+
 class Checker:
     def __init__(
         self,
         *,
-        near_path: str | None = None,
+        adj_path: str | None = None,
         pinyin_path: str | None = None,
     ):
-        self.near: set[frozenset[str]] = set()
-        if near_path is not None:
-            with open(near_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    x, y = line.split()
-                    self.near.add(frozenset((x, y)))
-
+        self.adj = Check_Adjacency(adj_path) if adj_path is not None else None
         self.pinyin = Check_Popular(pinyin_path) if pinyin_path is not None else None
 
     def check_pinyin(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
@@ -241,33 +269,20 @@ class Checker:
             return []
         return self.pinyin.check_popular(passwd, limit=limit, leet_cost=leet_cost)
 
-    def check_near(self, passwd: str, *, limit: int = 3):
-        cur = ""
-        words: list[tuple[str, int]] = []
-        for i in range(1, len(passwd)):
-            x, y = passwd[i - 1], passwd[i]
-            if frozenset((x.lower(), y.lower())) in self.near:
-                if not cur:
-                    cur = x
-                cur += y
-            else:
-                if len(cur) >= limit:
-                    words.append((cur, i - len(cur)))
-                cur = ""
-        if len(cur) >= limit:
-            words.append((cur, len(passwd) - len(cur)))
-        return words
-
+    def check_adj(self, passwd: str, *, limit: int = 3):
+        if self.adj is None:
+            return []
+        return self.adj.check_adj(passwd, limit=limit)
 
 
 if __name__ == "__main__":
     checker = Checker(
-        near_path="near.txt",
+        adj_path="near.txt",
         pinyin_path="pinyin.txt",
     )
     # tests
     print(checker.check_pinyin("woaini"))
     print(checker.check_pinyin("woaini123"))
     print(checker.check_pinyin("woaishanghaidaxue"))
-    print(checker.check_near("qazwsx"))
-    print(checker.check_near("1q2w3e4r5t6y7u8i9o0p"))
+    print(checker.check_adj("qazwsx"))
+    print(checker.check_adj("1q2w3e4r5t6y7u8i9o0p"))
