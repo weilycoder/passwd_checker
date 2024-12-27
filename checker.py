@@ -4,7 +4,25 @@ import math, itertools
 
 from collections import deque, defaultdict
 
-from typing import Any, Generator, cast
+from typing import Generator, cast
+
+
+class PatternID:
+    LOWER_ALPHA = "L"
+    UPPER_ALPHA = "U"
+    DIGIT = "D"
+    SPECIAL = "S"
+    HIGH = "H"
+    OTHER = "X"
+
+    PINYIN = "P"
+    POPULAR = "W"
+    ADJACENCY = "A"
+    REPETITION = "R"
+    NUMBER = "N"
+    DIFF_SEQ = "C"
+
+    ALL = "LUDSHXWRNC"
 
 
 NOT_CHAR = 0x110000
@@ -226,15 +244,16 @@ class CharType:
 
 
 class CharTypesTable:
-    char_type: list[CharType] = [
-        CharType(DIGITS, True),
-        CharType(LOWER_CASE, True),
-        CharType(UPPER_CASE, True),
-        CharType(ASCII_SPECIAL_CHARS),
-        CharType(HIGH_ANSI_CHARS),
-        CharType(
-            NOT_CHAR - 26 * 2 - 10 - len(ASCII_SPECIAL_CHARS) - len(HIGH_ANSI_CHARS)
-        ),
+    SPECIAL_LEN = len(ASCII_SPECIAL_CHARS)
+    HIGH_LEN = len(HIGH_ANSI_CHARS)
+
+    char_type: list[tuple[str, CharType]] = [
+        (PatternID.DIGIT, CharType(DIGITS, True)),
+        (PatternID.LOWER_ALPHA, CharType(LOWER_CASE, True)),
+        (PatternID.UPPER_ALPHA, CharType(UPPER_CASE, True)),
+        (PatternID.SPECIAL, CharType(ASCII_SPECIAL_CHARS)),
+        (PatternID.HIGH, CharType(HIGH_ANSI_CHARS)),
+        (PatternID.OTHER, CharType(NOT_CHAR - 26 * 2 - 10 - SPECIAL_LEN - HIGH_LEN)),
     ]
 
     @classmethod
@@ -316,17 +335,17 @@ class Checker:
 
     def check_adj(self, passwd: str, *, limit: int = 3):
         if self.adj is None:
-            return []
+            return cast(list[tuple[None, int, int, float]], [])
         return self.adj.check_adj(passwd, limit=limit)
 
     def check_pinyin(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
         if self.pinyin is None:
-            return []
+            return cast(list[tuple[None, int, int, float]], [])
         return self.pinyin.check_popular(passwd, limit=limit, leet_cost=leet_cost)
 
     def check_popular(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
         if self.popular is None:
-            return []
+            return cast(list[tuple[None, int, int, float]], [])
         return self.popular.check_popular(passwd, limit=limit, leet_cost=leet_cost)
 
     def check_repetitions(self, passwd: str, *, limit: int = 3):
@@ -358,7 +377,7 @@ class Checker:
 
     def check_number(self, passwd: str, *, limit: int = 3):
         cur: list[int] = []
-        ret: list[tuple[int, int, float]] = []
+        ret: list[tuple[None, int, int, float]] = []
         v = [ord(c) for c in passwd]
         v.append(NOT_CHAR)
         for i in range(len(passwd) + 1):
@@ -369,7 +388,7 @@ class Checker:
                 if len(cur) >= limit:
                     s = "".join(map(chr, cur))
                     cost = math.log(len(s) - len(s.lstrip("0")) + 1) + math.log(int(s))
-                    ret.append((i - len(s), len(s), cost))
+                    ret.append((None, i - len(s), len(s), cost))
                 cur.clear()
         return ret
 
@@ -377,16 +396,26 @@ class Checker:
         v = [ord(c) for c in passwd]
         v.append(NOT_CHAR)
         d, p = NOT_CHAR, 0
-        ret: list[tuple[int, int, float]] = []
+        ret: list[tuple[None, int, int, float]] = []
         for i in range(1, len(v)):
             cur = v[i] - v[i - 1]
             if cur == d:
                 continue
             if i - p >= limit:
-                ct = CharTypesTable.get_char_type(passwd[p])
+                ct = CharTypesTable.get_char_type(passwd[p])[1]
                 cost = ct.ch_size + math.log(i - p - 1)
-                ret.append((p, i - p, cost))
+                ret.append((None, p, i - p, cost))
             d, p = cur, i - 1
+        return ret
+
+    def check(self, passwd: str):
+        ret: list[tuple[str, int | None, int, int, float]] = []
+        ret.extend(add_type_tag(PatternID.ADJACENCY, self.check_adj(passwd)))
+        ret.extend(add_type_tag(PatternID.PINYIN, self.check_pinyin(passwd)))
+        ret.extend(add_type_tag(PatternID.POPULAR, self.check_popular(passwd)))
+        ret.extend(add_type_tag(PatternID.REPETITION, self.check_repetitions(passwd)))
+        ret.extend(add_type_tag(PatternID.NUMBER, self.check_number(passwd)))
+        ret.extend(add_type_tag(PatternID.DIFF_SEQ, self.check_diff_seq(passwd)))
         return ret
 
 
@@ -396,11 +425,12 @@ if __name__ == "__main__":
         pinyin_path="pinyin.txt",
     )
     # tests
-    print(checker.check_pinyin("woaini"))
-    print(checker.check_pinyin("woaini123"))
-    print(checker.check_pinyin("woaishanghaidaxue"))
-    print(checker.check_adj("qazwsx"))
-    print(checker.check_adj("1q2w3e4r5t6y7u8i9o0p"))
-    print(checker.check_repetitions("qazwsxqazwsx"))
-    print(checker.check_number("123456"))
-    print(checker.check_diff_seq("abcdefg"))
+    print(checker.check("woaini"))
+    print(checker.check("woaini123"))
+    print(checker.check("woaishanghaidaxue"))
+    print(checker.check("qazwsx"))
+    print(checker.check("1q2w3e4r5t6y7u8i9o0p"))
+    print(checker.check("qazwsxqazwsx"))
+    print(checker.check("123456"))
+    print(checker.check("123123"))
+    print(checker.check("abcdefg"))
