@@ -239,7 +239,6 @@ class CharTypesTable:
 
     @classmethod
     def get_char_type(cls, ch: str):
-        assert len(ch) == 1
         for tp in cls.char_type[:-1]:
             if ch in tp:
                 return tp
@@ -374,6 +373,22 @@ class Checker:
                 cur.clear()
         return ret
 
+    def check_diff_seq(self, passwd: str, *, limit: int = 3):
+        v = [ord(c) for c in passwd]
+        v.append(NOT_CHAR)
+        d, p = NOT_CHAR, 0
+        ret: list[tuple[int, int, float]] = []
+        for i in range(1, len(v)):
+            cur = v[i] - v[i - 1]
+            if cur == d:
+                continue
+            if i - p >= limit:
+                ct = CharTypesTable.get_char_type(passwd[p])
+                cost = ct.ch_size + math.log(i - p - 1)
+                ret.append((p, i - p, cost))
+            d, p = cur, i - 1
+        return ret
+
 
 if __name__ == "__main__":
     checker = Checker(
@@ -388,3 +403,4 @@ if __name__ == "__main__":
     print(checker.check_adj("1q2w3e4r5t6y7u8i9o0p"))
     print(checker.check_repetitions("qazwsxqazwsx"))
     print(checker.check_number("123456"))
+    print(checker.check_diff_seq("abcdefg"))
