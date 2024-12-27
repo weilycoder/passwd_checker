@@ -4,7 +4,7 @@ import math, itertools
 
 from collections import deque, defaultdict
 
-from typing import Generator, cast
+from typing import Any, Generator, cast
 
 
 NOT_CHAR = 0x110000
@@ -78,6 +78,10 @@ HIGH_LEET_MAP = {
     "\u00FD": "y",
     "\u00FF": "y",
 }
+
+
+def add_type_tag(tag: str, data: list[tuple[Any, ...]]):
+    return [(tag, *x) for x in data]
 
 
 def decode_phonetic_alpha(ch: str):
@@ -305,19 +309,70 @@ class Checker:
         *,
         adj_path: str | None = None,
         pinyin_path: str | None = None,
+        popular_path: str | None = None,
     ):
         self.adj = Check_Adjacency(adj_path) if adj_path is not None else None
         self.pinyin = Check_Popular(pinyin_path) if pinyin_path is not None else None
-
-    def check_pinyin(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
-        if self.pinyin is None:
-            return []
-        return self.pinyin.check_popular(passwd, limit=limit, leet_cost=leet_cost)
+        self.popular = Check_Popular(popular_path) if popular_path is not None else None
 
     def check_adj(self, passwd: str, *, limit: int = 3):
         if self.adj is None:
             return []
         return self.adj.check_adj(passwd, limit=limit)
+
+    def check_pinyin(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
+        if self.pinyin is None:
+            return []
+        return self.pinyin.check_popular(passwd, limit=limit, leet_cost=leet_cost)
+    
+    def check_popular(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
+        if self.popular is None:
+            return []
+        return self.popular.check_popular(passwd, limit=limit, leet_cost=leet_cost)
+
+    def check_repetitions(self, passwd: str, *, limit: int = 3):
+        n = len(passwd)
+        v = [ord(c) for c in passwd]
+        ret: list[tuple[int, int, int, float]] = []
+        chErased = 0x110000
+
+        def erase_part(i: int, length: int):
+            nonlocal v, chErased
+            for j in range(i, i + length):
+                v[j] = chErased
+                chErased += 1
+
+        for m in range(n // 2, limit - 1, -1):
+            for i in range(n - m * 2 + 1):
+                found = False
+                for j in range(i + m, n - m + 1):
+                    if v[i : i + m] == v[j : j + m]:
+                        erase_part(j, m)
+                        cost = math.log(i + 1) + math.log(m)
+                        ret.append((i, j, m, cost))
+                        erase_part(j, m)
+                        found = True
+                if found:
+                    erase_part(i, m)
+
+        return ret
+
+    def check_number(self, passwd: str, *, limit: int = 3):
+        cur: list[int] = []
+        ret: list[tuple[int, int, float]] = []
+        v = [ord(c) for c in passwd]
+        v.append(NOT_CHAR)
+        for i in range(len(passwd) + 1):
+            ch = v[i]
+            if 0x30 <= ch <= 0x39:
+                cur.append(ch)
+            else:
+                if len(cur) >= limit:
+                    s = "".join(map(chr, cur))
+                    cost = math.log(len(s) - len(s.lstrip("0")) + 1) + math.log(int(s))
+                    ret.append((i - len(s), len(s), cost))
+                cur.clear()
+        return ret
 
 
 if __name__ == "__main__":
@@ -331,3 +386,5 @@ if __name__ == "__main__":
     print(checker.check_pinyin("woaishanghaidaxue"))
     print(checker.check_adj("qazwsx"))
     print(checker.check_adj("1q2w3e4r5t6y7u8i9o0p"))
+    print(checker.check_repetitions("qazwsxqazwsx"))
+    print(checker.check_number("123456"))
