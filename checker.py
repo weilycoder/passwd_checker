@@ -197,6 +197,51 @@ class Trie[T]:
         return self.children[key]
 
 
+class CharType:
+    def __init__(self, alphabet: str | int, consecutive: bool = False):
+        self.alphabet = self.ch_range = None
+        if isinstance(alphabet, int):
+            self.ch_cnt = alphabet
+        else:
+            self.alphabet = alphabet
+            if consecutive:
+                self.ch_range = range(ord(self.alphabet[0]), ord(self.alphabet[-1]) + 1)
+                self.alphabet = "".join(map(chr, self.ch_range))
+            self.ch_cnt = len(self.alphabet)
+        self.ch_size = math.log(self.ch_cnt)
+
+    @property
+    def consecutive(self):
+        return self.ch_range is not None
+
+    def __contains__(self, ch: str):
+        if self.ch_range is not None:
+            return ord(ch) in self.ch_range
+        assert self.alphabet is not None
+        return ch in self.alphabet
+
+
+class CharTypesTable:
+    char_type: list[CharType] = [
+        CharType(DIGITS, True),
+        CharType(LOWER_CASE, True),
+        CharType(UPPER_CASE, True),
+        CharType(ASCII_SPECIAL_CHARS),
+        CharType(HIGH_ANSI_CHARS),
+        CharType(
+            NOT_CHAR - 26 * 2 - 10 - len(ASCII_SPECIAL_CHARS) - len(HIGH_ANSI_CHARS)
+        ),
+    ]
+
+    @classmethod
+    def get_char_type(cls, ch: str):
+        assert len(ch) == 1
+        for tp in cls.char_type[:-1]:
+            if ch in tp:
+                return tp
+        return cls.char_type[-1]
+
+
 class Check_Popular:
     def __init__(self, table_path: str):
         self.table = Trie()
