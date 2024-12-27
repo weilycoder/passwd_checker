@@ -258,7 +258,7 @@ class Check_Popular:
         self.table.build()
 
     def check_popular(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
-        ret = []
+        ret: list[tuple[int, int, float]] = []
         leet_pwd = decode_leet(passwd.lower())
         for pos, length in self.table.query(leet_pwd, limit=limit):
             dist = hamming_dist(passwd, leet_pwd, slice(pos, pos + length))
@@ -324,7 +324,7 @@ class Checker:
         if self.pinyin is None:
             return []
         return self.pinyin.check_popular(passwd, limit=limit, leet_cost=leet_cost)
-    
+
     def check_popular(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
         if self.popular is None:
             return []
