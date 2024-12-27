@@ -1,19 +1,13 @@
 import sys
 
-edge: set[tuple[str, str]] = set()
+edge: set[frozenset[str]] = set()
 
 
 def add(x: str, y: str, *, warn: bool = True) -> None:
-    x = x.lower()
-    y = y.lower()
-    if x > y:
-        x, y = y, x
+    x, y = x.lower(), y.lower()
     if warn and (x, y) in edge:
         print(f"Warning: {(x, y)} is already exist.")
-    edge.add((x.lower(), y.lower()))
-    edge.add((x.upper(), y.lower()))
-    edge.add((x.lower(), y.upper()))
-    edge.add((x.upper(), y.upper()))
+    edge.add(frozenset((x, y)))
 
 
 with open("near.txt", "r", encoding="utf-8") as file:
@@ -24,7 +18,7 @@ with open("near.txt", "r", encoding="utf-8") as file:
 try:
     while True:
         try:
-            table = input("insert? ").split()
+            table = list(input("insert? "))
         except ValueError:
             continue
         else:
