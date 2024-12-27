@@ -98,7 +98,7 @@ HIGH_LEET_MAP = {
 }
 
 
-def add_type_tag(tag: str, data: list[tuple[Any, ...]]):
+def add_type_tag[T](tag: str, data: list[tuple[T, int, int, float]]):
     return [(tag, *x) for x in data]
 
 
@@ -265,36 +265,46 @@ class CharTypesTable:
 
 
 class Check_Popular:
-    def __init__(self, table_path: str):
+    def __init__(self, table: str | list[str]):
         self.table = Trie()
         self.len_cnt: defaultdict[int, int] = defaultdict(int)
-        with open(table_path, "r", encoding="utf-8") as file:
-            for line in file:
-                word = line.strip()
+        if isinstance(table, str):
+            with open(table, "r", encoding="utf-8") as file:
+                for line in file:
+                    word = line.strip()
+                    self.table.insert(word)
+                    self.len_cnt[len(word)] += 1
+        else:
+            for word in table:
                 self.table.insert(word)
                 self.len_cnt[len(word)] += 1
         self.table.build()
 
     def check_popular(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
-        ret: list[tuple[int, int, float]] = []
+        ret: list[tuple[None, int, int, float]] = []
         leet_pwd = decode_leet(passwd.lower())
         for pos, length in self.table.query(leet_pwd, limit=limit):
             dist = hamming_dist(passwd, leet_pwd, slice(pos, pos + length))
             cost = math.log(self.len_cnt[length])
             cost += log_comb(len(passwd), length)
             cost += dist * leet_cost
-            ret.append((pos, length, cost))
+            ret.append((None, pos, length, cost))
         return ret
 
 
 class Check_Adjacency:
-    def __init__(self, adj_path: str):
+    def __init__(self, adj_path: str | list[tuple[str, str]]):
         self.alpha: set[str] = set()
         self.adj: set[frozenset[str]] = set()
 
-        with open(adj_path, "r", encoding="utf-8") as file:
-            for line in file:
-                x, y = line.split()
+        if isinstance(adj_path, str):
+            with open(adj_path, "r", encoding="utf-8") as file:
+                for line in file:
+                    x, y = line.split()
+                    self.alpha.update(x, y)
+                    self.adj.add(frozenset((x, y)))
+        else:
+            for x, y in adj_path:
                 self.alpha.update(x, y)
                 self.adj.add(frozenset((x, y)))
 
@@ -303,7 +313,7 @@ class Check_Adjacency:
 
     def check_adj(self, passwd: str, *, limit: int = 3):
         cur = ""
-        words: list[tuple[int, int, float]] = []
+        words: list[tuple[None, int, int, float]] = []
         for i in range(1, len(passwd)):
             x, y = passwd[i - 1], passwd[i]
             if frozenset((x.lower(), y.lower())) in self.adj:
@@ -313,11 +323,11 @@ class Check_Adjacency:
             else:
                 if len(cur) >= limit:
                     cost = self.edge_size * len(cur)
-                    words.append((i - len(cur), len(cur), cost))
+                    words.append((None, i - len(cur), len(cur), cost))
                 cur = ""
         if len(cur) >= limit:
             cost = self.edge_size * len(cur)
-            words.append((len(passwd) - len(cur), len(cur), cost))
+            words.append((None, len(passwd) - len(cur), len(cur), cost))
         return words
 
 
