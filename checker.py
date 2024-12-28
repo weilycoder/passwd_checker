@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import math, itertools
+import math, itertools, getpass
 
 from collections import deque, defaultdict
 
@@ -427,9 +427,9 @@ class Checker:
     def __init__(
         self,
         *,
-        adj_path: str | None = None,
-        pinyin_path: str | None = None,
-        popular_path: str | None = None,
+        adj_path: str | list[tuple[str, str]] | None = None,
+        pinyin_path: str | list[str] | None = None,
+        popular_path: str | list[str] | None = None,
     ):
         self.adj = Check_Adjacency(adj_path) if adj_path is not None else None
         self.pinyin = Check_Popular(pinyin_path) if pinyin_path is not None else None
@@ -551,7 +551,7 @@ class Checker:
                     cost = cur
             else:
                 subs = ret[s[0]]
-                for pi in subs[::-1]:
+                for pi in subs:
                     rec.append((s[0] + pi[3], (*s[1], pi)))
 
         if base is not None:
@@ -560,10 +560,24 @@ class Checker:
         return cost
 
 
+def get_description(quality: float):
+    if quality < 64:
+        return "Very Weak"
+    if quality < 80:
+        return "Weak"
+    if quality < 112:
+        return "Fair"
+    if quality < 128:
+        return "Strong"
+    return "Very Strong"
+
+
 if __name__ == "__main__":
     checker = Checker(
         adj_path="near.txt",
         pinyin_path="pinyin.txt",
         popular_path="popular.txt",
     )
-    print(checker.check(input()))
+    passwd = getpass.getpass()
+    quality = checker.check(passwd)
+    print(f"{get_description(quality)}: {quality:.2f} bit.")
