@@ -489,7 +489,9 @@ class Checker:
             else:
                 if len(cur) >= limit:
                     s = "".join(map(chr, cur))
-                    cost = math.log(len(s) - len(s.lstrip("0")) + 1) + math.log(int(s))
+                    cost = math.log(len(s) - len(s.lstrip("0")) + 1)
+                    if int(s):
+                        cost += math.log(int(s))
                     ret.append((None, i - len(s), len(s), cost))
                 cur.clear()
         return ret
@@ -562,5 +564,6 @@ if __name__ == "__main__":
     checker = Checker(
         adj_path="near.txt",
         pinyin_path="pinyin.txt",
+        popular_path="popular.txt",
     )
     print(checker.check(input()))
