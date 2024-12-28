@@ -383,6 +383,10 @@ class Check_Popular:
             ret.append((None, pos, length, cost))
         return ret
 
+    @staticmethod
+    def load(data: str):
+        return data.splitlines()
+
 
 class Check_Adjacency:
     def __init__(self, adj_path: str | list[tuple[str, str]]):
@@ -422,18 +426,22 @@ class Check_Adjacency:
             words.append((None, len(passwd) - len(cur), len(cur), cost))
         return words
 
+    @staticmethod
+    def load(data: str):
+        return [tuple(line.split()) for line in data.splitlines()]
+
 
 class Checker:
     def __init__(
         self,
         *,
-        adj_path: str | list[tuple[str, str]] | None = None,
-        pinyin_path: str | list[str] | None = None,
-        popular_path: str | list[str] | None = None,
+        adj_data: str | list[tuple[str, str]] | None = None,
+        pinyin_data: str | list[str] | None = None,
+        popular_data: str | list[str] | None = None,
     ):
-        self.adj = Check_Adjacency(adj_path) if adj_path is not None else None
-        self.pinyin = Check_Popular(pinyin_path) if pinyin_path is not None else None
-        self.popular = Check_Popular(popular_path) if popular_path is not None else None
+        self.adj = Check_Adjacency(adj_data) if adj_data is not None else None
+        self.pinyin = Check_Popular(pinyin_data) if pinyin_data is not None else None
+        self.popular = Check_Popular(popular_data) if popular_data is not None else None
 
     def check_adj(self, passwd: str, *, limit: int = 3):
         if self.adj is None:
@@ -489,9 +497,8 @@ class Checker:
             else:
                 if len(cur) >= limit:
                     s = "".join(map(chr, cur))
-                    cost = math.log(len(s) - len(s.lstrip("0")) + 1)
-                    if int(s):
-                        cost += math.log(int(s))
+                    val = int(s)
+                    cost = math.log(len(str(val))) + math.log(val + 1)
                     ret.append((None, i - len(s), len(s), cost))
                 cur.clear()
         return ret
@@ -572,12 +579,12 @@ def get_description(quality: float):
     return "Very Strong"
 
 
-if __name__ == "__main__":
-    checker = Checker(
-        adj_path="near.txt",
-        pinyin_path="pinyin.txt",
-        popular_path="popular.txt",
-    )
-    passwd = getpass.getpass()
-    quality = checker.check(passwd)
-    print(f"{get_description(quality)}: {quality:.2f} bit.")
+# if __name__ == "__main__":
+#     checker = Checker(
+#         adj_path="near.txt",
+#         pinyin_path="pinyin.txt",
+#         popular_path="popular.txt",
+#     )
+#     passwd = getpass.getpass()
+#     quality = checker.check(passwd)
+#     print(f"{get_description(quality)}: {quality:.2f} bit.")

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width" />
+  <link rel="stylesheet" type="text/css" href="./style.css">
+  <script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
+  <title>密码强度计算器</title>
+</head>
+
+<body>
+  <form>
+    <h1>密码强度计算器</h1>
+    <p>在下面的输入框中输入一段密码，可以计算密码的强度。
+      所有的计算发生在本地，你的密码不会被记录或上传。</p>
+    <p><label for="password">密码: </label><br><input type="password" id="password" /></p>
+
+    <div class="progress">
+      <div class="progress-bar" role="progressbar" id="quality-progress-bar">
+      </div>
+      <span class="progress-text" id="quality-value-text">
+        Loading...
+      </span>
+    </div>
+    <p id="quality-description" style="text-align: center"></p>
+  </form>
+  <script type="py" src="./checker.py"></script>
+  <script type="py" src="./script.py"></script>
+</body>
+
+</html>
