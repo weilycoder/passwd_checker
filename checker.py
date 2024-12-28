@@ -591,10 +591,10 @@ def get_description(quality: float):
 
 def main():
     checker = Checker(
-        adj_path="near.txt",
-        pinyin_path="pinyin.txt",
-        popular_path="popular.txt",
+        adj_data="near.txt",
+        pinyin_data="pinyin.txt",
+        popular_data="popular.txt",
     )
     passwd = getpass.getpass()
-    quality = checker.check(passwd)
+    quality = checker.check(passwd)[0]
     print(f"{get_description(quality)}: {quality:.2f} bit.")

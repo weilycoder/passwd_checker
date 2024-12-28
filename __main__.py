@@ -1,0 +1,3 @@
+import checker
+
+checker.main()
