@@ -17,8 +17,7 @@ checker = None
 def work(*args, **kwargs):
     if checker is None:
         return
-    quality = checker.check(passwordInput.value)
-    print(quality)
+    quality = checker.check(passwordInput.value, 0.1)[0]
     qualityText.innerText = f"{quality:.4f} bits"
     progressValue = max(min(quality / 128, 1), 0)
     qualityProgressBar.style.width = f"{progressValue * 100}%"

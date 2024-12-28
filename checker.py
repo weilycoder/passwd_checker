@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import math, itertools, getpass
+import time, math, itertools, getpass
 
 from collections import deque, defaultdict
 
@@ -498,7 +498,7 @@ class Checker:
                 if len(cur) >= limit:
                     s = "".join(map(chr, cur))
                     val = int(s)
-                    cost = math.log(len(str(val))) + math.log(val + 1)
+                    cost = math.log(len(s) - len(str(val)) + 1) + math.log(val + 1)
                     ret.append((None, i - len(s), len(s), cost))
                 cur.clear()
         return ret
@@ -519,7 +519,9 @@ class Checker:
             d, p = cur, i - 1
         return ret
 
-    def check(self, passwd: str, *, base: float | None = 2):
+    def check(
+        self, passwd: str, timeout: float | None = None, *, base: float | None = 2
+    ):
         ret: list[list[tuple[str, int | None, int, int, float]]] = []
 
         for i in range(len(passwd)):
@@ -538,6 +540,9 @@ class Checker:
         for data in add_type_tag(PatternID.DIFF_SEQ, self.check_diff_seq(passwd)):
             ret[data[2]].append(data)
 
+        for r in ret:
+            r.sort(key=lambda x: x[-1], reverse=True)
+
         ecPattern = EntropyEncoder(PatternID.ALL, 0.0, 1.0, 0)
         mcData = EntropyEncoderTable()
 
@@ -547,24 +552,29 @@ class Checker:
             mcData.addEncoder(tp[0], EntropyEncoder(tp[1].alphabet, 1.0, uw, 1))
 
         cost = math.inf
+        best_path = None
         rec: list[tuple[int, tuple[tuple[str, int | None, int, int, float], ...]]] = []
         rec.append((0, tuple()))
 
+        st_time = time.time()
         while len(rec) > 0:
+            if timeout is not None and time.time() - st_time > timeout:
+                break
             s = rec.pop()
             if s[0] >= len(passwd):
                 cur = computePathCost(s[1], passwd, ecPattern, mcData)
                 if cur < cost:
                     cost = cur
+                    best_path = s[1]
             else:
                 subs = ret[s[0]]
-                for pi in subs:
+                for pi in subs[::-1]:
                     rec.append((s[0] + pi[3], (*s[1], pi)))
 
         if base is not None:
             cost /= math.log(base)
 
-        return cost
+        return cost, best_path
 
 
 def get_description(quality: float):
@@ -579,12 +589,12 @@ def get_description(quality: float):
     return "Very Strong"
 
 
-# if __name__ == "__main__":
-#     checker = Checker(
-#         adj_path="near.txt",
-#         pinyin_path="pinyin.txt",
-#         popular_path="popular.txt",
-#     )
-#     passwd = getpass.getpass()
-#     quality = checker.check(passwd)
-#     print(f"{get_description(quality)}: {quality:.2f} bit.")
+def main():
+    checker = Checker(
+        adj_path="near.txt",
+        pinyin_path="pinyin.txt",
+        popular_path="popular.txt",
+    )
+    passwd = getpass.getpass()
+    quality = checker.check(passwd)
+    print(f"{get_description(quality)}: {quality:.2f} bit.")
