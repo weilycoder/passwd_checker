@@ -22,7 +22,7 @@ class PatternID:
     NUMBER = "N"
     DIFF_SEQ = "C"
 
-    ALL = "LUDSHXWRNC"
+    ALL = "LUDSHXPWARNC"
 
 
 NOT_CHAR = 0x110000
@@ -259,9 +259,101 @@ class CharTypesTable:
     @classmethod
     def get_char_type(cls, ch: str):
         for tp in cls.char_type[:-1]:
-            if ch in tp:
+            if ch in tp[1]:
                 return tp
         return cls.char_type[-1]
+
+    @classmethod
+    def get_type(cls, tp: str):
+        for x in cls.char_type:
+            if x[0] == tp:
+                return x
+        return cls.char_type[-1]
+
+
+class EntropyEncoder:
+    def __init__(
+        self,
+        alphabetType: str,
+        baseWeight: float,
+        charWeight: float,
+        occExclThreshold: int,
+    ):
+        self.strAlph = alphabetType
+        self.baseWeight = baseWeight
+        self.charWeight = charWeight
+        self.occExclThreshold = occExclThreshold
+
+        self.dHisto: defaultdict[str, int] = defaultdict(int)
+
+    def reset(self):
+        self.dHisto.clear()
+
+    def write(self, ch: str):
+        assert ch in self.strAlph
+        self.dHisto[ch] += 1
+
+    def get_output_size(self):
+        tot_weight = self.baseWeight * len(self.strAlph)
+        for u in self.dHisto.values():
+            if u > self.occExclThreshold:
+                tot_weight += (u - self.occExclThreshold) * self.charWeight
+
+        size = 0.0
+        for u in self.dHisto.values():
+            weight = self.baseWeight
+            if u > self.occExclThreshold:
+                weight += (u - self.occExclThreshold) * self.charWeight
+            size -= u * math.log(weight / tot_weight)
+
+        return size
+
+
+class EntropyEncoderTable:
+    def __init__(self):
+        self.encs: dict[str, EntropyEncoder] = {}
+
+    def addEncoder(self, typeId: str, enc: EntropyEncoder):
+        self.encs[typeId] = enc
+
+    def reset(self):
+        for enc in self.encs.values():
+            enc.reset()
+
+    def write(self, typeId: str, ch: str):
+        ec = self.encs.get(typeId)
+        if ec is None:
+            return False
+        ec.write(ch)
+        return True
+
+    def get_output_size(self):
+        size = 0.0
+        for enc in self.encs.values():
+            size += enc.get_output_size()
+        return size
+
+
+def computePathCost(
+    path: tuple[tuple[str, int | None, int, int, float], ...],
+    passwd: str,
+    ecPattern: EntropyEncoder,
+    mcData: EntropyEncoderTable,
+):
+    mcData.reset()
+    ecPattern.reset()
+    for pi in path:
+        ecPattern.write(pi[0])
+    cost = ecPattern.get_output_size()
+    for pi in path:
+        if pi[4] is math.nan:
+            cost += CharTypesTable.get_type(pi[0])[1].ch_size
+        else:
+            ch = passwd[pi[2]]
+            if not mcData.write(pi[0], ch):
+                cost += pi[4]
+    cost += mcData.get_output_size()
+    return cost
 
 
 class Check_Popular:
@@ -348,12 +440,12 @@ class Checker:
             return cast(list[tuple[None, int, int, float]], [])
         return self.adj.check_adj(passwd, limit=limit)
 
-    def check_pinyin(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
+    def check_pinyin(self, passwd: str, *, limit: int = 3, leet_cost: float = 1.5):
         if self.pinyin is None:
             return cast(list[tuple[None, int, int, float]], [])
         return self.pinyin.check_popular(passwd, limit=limit, leet_cost=leet_cost)
 
-    def check_popular(self, passwd: str, *, limit: int = 5, leet_cost: float = 1.5):
+    def check_popular(self, passwd: str, *, limit: int = 3, leet_cost: float = 1.5):
         if self.popular is None:
             return cast(list[tuple[None, int, int, float]], [])
         return self.popular.check_popular(passwd, limit=limit, leet_cost=leet_cost)
@@ -418,15 +510,52 @@ class Checker:
             d, p = cur, i - 1
         return ret
 
-    def check(self, passwd: str):
-        ret: list[tuple[str, int | None, int, int, float]] = []
-        ret.extend(add_type_tag(PatternID.ADJACENCY, self.check_adj(passwd)))
-        ret.extend(add_type_tag(PatternID.PINYIN, self.check_pinyin(passwd)))
-        ret.extend(add_type_tag(PatternID.POPULAR, self.check_popular(passwd)))
-        ret.extend(add_type_tag(PatternID.REPETITION, self.check_repetitions(passwd)))
-        ret.extend(add_type_tag(PatternID.NUMBER, self.check_number(passwd)))
-        ret.extend(add_type_tag(PatternID.DIFF_SEQ, self.check_diff_seq(passwd)))
-        return ret
+    def check(self, passwd: str, *, base: float | None = 2):
+        ret: list[list[tuple[str, int | None, int, int, float]]] = []
+
+        for i in range(len(passwd)):
+            tp, _ = CharTypesTable.get_char_type(passwd[i])
+            ret.append([(tp, None, i, 1, math.nan)])
+        for data in add_type_tag(PatternID.ADJACENCY, self.check_adj(passwd)):
+            ret[data[2]].append(data)
+        for data in add_type_tag(PatternID.PINYIN, self.check_pinyin(passwd)):
+            ret[data[2]].append(data)
+        for data in add_type_tag(PatternID.POPULAR, self.check_popular(passwd)):
+            ret[data[2]].append(data)
+        for data in add_type_tag(PatternID.REPETITION, self.check_repetitions(passwd)):
+            ret[data[2]].append(data)
+        for data in add_type_tag(PatternID.NUMBER, self.check_number(passwd)):
+            ret[data[2]].append(data)
+        for data in add_type_tag(PatternID.DIFF_SEQ, self.check_diff_seq(passwd)):
+            ret[data[2]].append(data)
+
+        ecPattern = EntropyEncoder(PatternID.ALL, 0.0, 1.0, 0)
+        mcData = EntropyEncoderTable()
+
+        for tp in CharTypesTable.char_type[:-1]:
+            assert tp[1].alphabet is not None
+            uw = math.sqrt(tp[1].ch_cnt)
+            mcData.addEncoder(tp[0], EntropyEncoder(tp[1].alphabet, 1.0, uw, 1))
+
+        cost = math.inf
+        rec: list[tuple[int, tuple[tuple[str, int | None, int, int, float], ...]]] = []
+        rec.append((0, tuple()))
+
+        while len(rec) > 0:
+            s = rec.pop()
+            if s[0] >= len(passwd):
+                cur = computePathCost(s[1], passwd, ecPattern, mcData)
+                if cur < cost:
+                    cost = cur
+            else:
+                subs = ret[s[0]]
+                for pi in subs[::-1]:
+                    rec.append((s[0] + pi[3], (*s[1], pi)))
+
+        if base is not None:
+            cost /= math.log(base)
+
+        return cost
 
 
 if __name__ == "__main__":
@@ -434,13 +563,4 @@ if __name__ == "__main__":
         adj_path="near.txt",
         pinyin_path="pinyin.txt",
     )
-    # tests
-    print(checker.check("woaini"))
-    print(checker.check("woaini123"))
-    print(checker.check("woaishanghaidaxue"))
-    print(checker.check("qazwsx"))
-    print(checker.check("1q2w3e4r5t6y7u8i9o0p"))
-    print(checker.check("qazwsxqazwsx"))
-    print(checker.check("123456"))
-    print(checker.check("123123"))
-    print(checker.check("abcdefg"))
+    print(checker.check(input()))
