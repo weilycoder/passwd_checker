@@ -36,7 +36,7 @@ checker = None
 down = create_proxy(
     lambda event: (
         download_file(report.encode(), "report.csv", "text/csv")
-        if isinstance(report, str)
+        if isinstance(report, str) and passwordInput.value
         else None
     )
 )
@@ -50,7 +50,7 @@ def work(*args, **kwargs):
     passwd = passwordInput.value
     quality, report = checker.check(passwd, 0.1)
     first_line = (
-        f"{hashlib.sha1(passwd.encode()).hexdigest()},,,{len(passwd)},{quality:.4f}\n"
+        f",,,{len(passwd)},{quality:.4f}\n"
     )
     report = first_line + typing.cast(str, to_csv(report))
     qualityText.innerText = f"{quality:.4f} bits"
